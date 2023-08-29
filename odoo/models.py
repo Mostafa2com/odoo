@@ -1141,6 +1141,10 @@ class BaseModel(metaclass=MetaModel):
                     # Failed to write, log to messages, rollback savepoint (to
                     # avoid broken transaction) and keep going
                     errors += 1
+                except UserError as e:
+                    info = rec_data['info']
+                    messages.append(dict(info, type='error', message=str(e)))
+                    errors += 1
                 except Exception as e:
                     _logger.debug("Error while loading record", exc_info=True)
                     info = rec_data['info']
@@ -2616,6 +2620,9 @@ class BaseModel(metaclass=MetaModel):
 
         for (key, definition, message) in self._sql_constraints:
             conname = '%s_%s' % (self._table, key)
+            if len(conname) > 63:
+                _logger.info("Constraint name %r has more than 63 characters", conname)
+
             current_definition = tools.constraint_definition(cr, self._table, conname)
             if current_definition == definition:
                 continue
@@ -2859,7 +2866,7 @@ class BaseModel(metaclass=MetaModel):
         :return: provided fields if fields is truthy (or the fields
           readable by the current user).
         :rtype: list
-        :raise AccessDenied: if the user is not allowed to access
+        :raise AccessError: if the user is not allowed to access
           the provided fields.
         """
         if self.env.su:
@@ -3053,8 +3060,8 @@ class BaseModel(metaclass=MetaModel):
                 else next((v for v in translations.values() if v is not None), None)
             self.invalidate_recordset([field_name])
             self._cr.execute(f'''
-                UPDATE {self._table}
-                SET {field_name} = NULLIF(
+                UPDATE "{self._table}"
+                SET "{field_name}" = NULLIF(
                     jsonb_strip_nulls(%s || COALESCE("{field_name}", '{{}}'::jsonb) || %s),
                     '{{}}'::jsonb)
                 WHERE id = %s
@@ -3124,6 +3131,11 @@ class BaseModel(metaclass=MetaModel):
         context['translation_show_source'] = callable(field.translate)
 
         return translations, context
+
+    def _get_base_lang(self):
+        """ Returns the base language of the record. """
+        self.ensure_one()
+        return 'en_US'
 
     def _read_format(self, fnames, load='_classic_read'):
         """Returns a list of dictionaries mapping field names to their values,
@@ -4362,6 +4374,17 @@ class BaseModel(metaclass=MetaModel):
             for data in to_create:
                 if data.get('xml_id') and not data['xml_id'].startswith(prefix):
                     _logger.warning("Creating record %s in module %s.", data['xml_id'], module)
+
+        if self.env.context.get('import_file'):
+            existing_modules = self.env['ir.module.module'].sudo().search([]).mapped('name')
+            for data in to_create:
+                xml_id = data.get('xml_id')
+                if xml_id:
+                    module_name, sep, record_id = xml_id.partition('.')
+                    if sep and module_name in existing_modules:
+                        raise UserError(
+                            _("The record %(xml_id)s has the module prefix %(module_name)s. This is the part before the '.' in the external id. Because the prefix refers to an existing module, the record would be deleted when the module is upgraded. Use either no prefix and no dot or a prefix that isn't an existing module. For example, __import__, resulting in the external id __import__.%(record_id)s.",
+                              xml_id=xml_id, module_name=module_name, record_id=record_id))
 
         # create records
         if to_create:

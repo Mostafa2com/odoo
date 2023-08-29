@@ -7,7 +7,7 @@
 # Munkhbilguun Altankhuyag <munkhbilguunaltankhuyag@gmail.com>, 2022
 # tserendavaa tsogtoo <tseegii011929@gmail.com>, 2022
 # Батболд <batbold.ts@gmail.com>, 2022
-# BATKHUYAG Ganbold <gbatkhuyag@gmail.com>, 2022
+# BATKHUYAG Ganbold, 2022
 # Chinzorita <chinzorig.o@asterisk-tech.mn>, 2022
 # nurbakhit nurka <nurbakhit@bumanit.mn>, 2022
 # Ubuntu Erka <erdenebold10@gmail.com>, 2022
@@ -5128,8 +5128,8 @@ msgstr ""
 #: model:ir.model.fields,help:stock.field_stock_lot__message_needaction_counter
 #: model:ir.model.fields,help:stock.field_stock_picking__message_needaction_counter
 #: model:ir.model.fields,help:stock.field_stock_scrap__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Үйлдэл шаардсан зурвасын тоо"
+msgid "Number of messages requiring action"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,help:stock.field_stock_lot__message_has_error_counter
@@ -7348,6 +7348,13 @@ msgstr "Бэлтгэх дараалал"
 #: code:addons/stock/models/stock_warehouse.py:0
 #, python-format
 msgid "Sequence return"
+msgstr ""
+
+#. module: stock
+#. odoo-python
+#: code:addons/stock/models/stock_picking.py:0
+#, python-format
+msgid "Sequences %s already exist."
 msgstr ""
 
 #. module: stock
@@ -9798,8 +9805,8 @@ msgstr "Ноорог хөдөлгөөнийг хуваах боломжгүй. �
 #. odoo-python
 #: code:addons/stock/models/stock_move.py:0
 #, python-format
-msgid "You cannot split a stock move that has been set to 'Done'."
-msgstr "'Дууссан' төлөвтэй барааны хөдөлгөөний хуваах боломжгүй."
+msgid "You cannot split a stock move that has been set to 'Done' or 'Cancel'."
+msgstr ""
 
 #. module: stock
 #. odoo-python

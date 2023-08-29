@@ -6,6 +6,8 @@ import {
     addRow,
     click,
     clickDiscard,
+    clickOpenM2ODropdown,
+    clickOpenedDropdownItem,
     clickSave,
     dragAndDrop,
     editInput,
@@ -715,6 +717,46 @@ QUnit.module("Views", (hooks) => {
         assert.containsOnce(target, ".o_field_widget[name=p] .o_data_row");
         await click(target.querySelector(".o_field_widget[name=p] .o_data_row .o_data_cell"));
         assert.containsOnce(target, ".modal .o_form_view .o_field_widget[name=p]");
+    });
+
+    QUnit.test("can edit o2m field from form when readonly in list view", async function (assert) {
+        serverData.models.partner.records[0].product_ids = [37];
+        const mockRPC = (route, { method, args }) => {
+            if (method === "write") {
+                assert.step("write");
+                assert.deepEqual(args[1], {
+                    product_ids: [
+                        [
+                            1,
+                            37,
+                            {
+                                display_name: "new",
+                            },
+                        ],
+                    ],
+                });
+            }
+        };
+        await makeView({
+            type: "form",
+            resModel: "partner",
+            serverData,
+            mockRPC,
+            arch: `
+                <form>
+                    <field name="product_ids">
+                        <tree><field name="display_name" readonly="1"/></tree>
+                        <form><field name="display_name"/></form>
+                    </field>
+                </form>`,
+            resId: 1,
+        });
+        await click(target, "td[name=display_name]");
+        await editInput(target, ".modal-dialog .o_field_widget[name=display_name] input", "new");
+        await click(target, ".modal-dialog .o_form_button_save");
+        assert.containsNone(target, ".modal-dialog");
+        await click(target, ".o_form_button_save");
+        assert.verifySteps(["write"]);
     });
 
     QUnit.test("decoration-bf works on fields", async function (assert) {
@@ -4301,6 +4343,81 @@ QUnit.module("Views", (hooks) => {
         await editInput(target, ".o_field_widget[name=foo] input", "tralala");
         await click(target.querySelector(".o_content button.btn-primary"));
         assert.verifySteps(["get_views", "read", "write", "read", "execute_action"]);
+    });
+
+    QUnit.test('buttons with attr "special" in dialog close the dialog', async function (assert) {
+        serverData.views = {
+            "product,false,form": `
+                <form>
+                    <sheet>
+                        <field name="name" />
+                    </sheet>
+                    <footer>
+                        <button class="btn btn-primary" special="save" data-hotkey="s">Special button save</button>
+                        <button class="btn btn-secondary" special="cancel" data-hotkey="j">Special button cancel</button>
+                    </footer>
+                </form>
+            `,
+        };
+
+        await makeView({
+            type: "form",
+            serverData,
+            resModel: "partner",
+            resId: 2,
+            arch: `
+                <form>
+                    <sheet><group>
+                    <field name="product_id"/>
+                    </group></sheet>
+                </form>`,
+            mockRPC(route, args) {
+                if (route === "/web/dataset/call_kw/product/get_formview_id") {
+                    return false;
+                }
+                if (route === "/web/dataset/call_kw/product/create") {
+                    assert.step("create RPC");
+                }
+                if (route === "/web/dataset/call_kw/partner/write") {
+                    assert.step("write RPC");
+                }
+            },
+        });
+
+        await editInput(target, "input[id=product_id]", "ABC");
+        await clickOpenM2ODropdown(target, "product_id");
+        await clickOpenedDropdownItem(target, "product_id", "Create and edit...");
+        assert.containsOnce(target, ".o_dialog", "dialog is present to create the product");
+
+        await editInput(target, ".o_field_widget[name=name] input", "ABCDE");
+        await click(target.querySelector("button[special=save]"));
+        assert.containsNone(target, ".o_dialog", "dialog has been closed");
+        assert.verifySteps(["create RPC"], "create RPC has been made");
+        assert.strictEqual(
+            target.querySelector("[name=product_id] input").value,
+            "ABCDE",
+            "value has been set correctly"
+        );
+        assert.containsOnce(
+            target,
+            ".o_form_status_indicator_buttons:not(.invisible)",
+            "form view is dirty"
+        );
+
+        await click(target.querySelector(".o_form_button_save"));
+        assert.verifySteps(["write RPC"], "write RPC has been made");
+
+        await editInput(target, "input[id=product_id]", "XYZ");
+        await clickOpenM2ODropdown(target, "product_id");
+        await clickOpenedDropdownItem(target, "product_id", "Create and edit...");
+        await click(target.querySelector("button[special=cancel]"));
+        assert.containsNone(target, ".o_dialog", "dialog has been closed");
+        assert.verifySteps([], "no create RPC has been made");
+        assert.containsOnce(
+            target,
+            ".o_form_status_indicator_buttons.invisible",
+            "form view is not dirty"
+        );
     });
 
     QUnit.test("missing widgets do not crash", async function (assert) {
@@ -12920,7 +13037,9 @@ QUnit.module("Views", (hooks) => {
         async function (assert) {
             class TestClientAction extends Component {
                 setup() {
-                    throw new RPCError("Something went wrong");
+                    const e = new RPCError("Something went wrong");
+                    e.data = {};
+                    throw e;
                 }
             }
             TestClientAction.template = xml`<div></div>`;
@@ -13068,4 +13187,96 @@ QUnit.module("Views", (hooks) => {
             assert.verifySteps(["create", "read"]);
         }
     );
+
+    QUnit.test(
+        "commitChanges with a field input removed during an update",
+        async function (assert) {
+            assert.expect(1);
+            serverData.models.partner.records[1].p = [1, 5];
+            serverData.models.partner.onchanges = {
+                foo() {},
+            };
+
+            const def = makeDeferred();
+
+            await makeView({
+                type: "form",
+                resModel: "partner",
+                resId: 2,
+                serverData,
+                arch: `
+                 <form>
+                    <field name="p">
+                        <tree editable="bottom">
+                            <field name="foo"/>
+                        </tree>
+                    </field>
+                </form>`,
+                async mockRPC(route, args) {
+                    if (args.method === "onchange") {
+                        await def;
+                    }
+
+                    if (args.method === "write") {
+                        assert.deepEqual(args.args[1], {
+                            p: [
+                                [1, 1, { foo: "new foo" }],
+                                [4, 5, false],
+                            ],
+                        });
+                    }
+                },
+            });
+
+            await click(target.querySelector('.o_data_cell[name="foo"]'));
+            const input = target.querySelector('.o_data_cell[name="foo"] input');
+            input.value = "new foo";
+            await triggerEvent(input, null, "input");
+
+            triggerHotkey("Tab");
+            await nextTick();
+
+            def.resolve();
+            await click(target, ".o_form_button_save");
+        }
+    );
+
+    QUnit.test("containing a nested x2many list view should not overflow", async function (assert) {
+        serverData.models.partner_type.records.push({
+            id: 3, display_name: 'very'.repeat(30) + '_long_name', color: 10,
+        });
+
+        const record = serverData.models.partner.records[0];
+        record.timmy = [3];
+
+        await makeView({
+            type: "form",
+            resModel: "partner",
+            resId: record.id,
+            serverData,
+            arch: `
+            <form>
+                <sheet>
+                    <group>
+                        <group/>
+                        <group>
+                            <field name="timmy" widget="many2many">
+                                <tree>
+                                    <field name="display_name"/>
+                                    <field name="color"/>
+                                </tree>
+                            </field>
+                        </group>
+                    </group>
+                </sheet>
+            </form>`,
+        });
+
+        const table = target.querySelector('table');
+        const group = target.querySelector('.o_inner_group:last-child');
+
+        assert.equal(group.clientWidth, group.scrollWidth);
+        table.style.tableLayout = 'auto';
+        assert.ok(group.clientWidth < group.scrollWidth);
+    });
 });

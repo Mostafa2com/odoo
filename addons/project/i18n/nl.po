@@ -2668,11 +2668,12 @@ msgstr ""
 #: model:ir.model.fields,help:project.field_project_task_type__fold
 msgid ""
 "If enabled, this stage will be displayed as folded in the Kanban view of "
-"your tasks. Tasks in a folded stage are considered as closed."
+"your tasks. Tasks in a folded stage are considered as closed (not applicable"
+" to personal stages)."
 msgstr ""
-"Indien ingeschakeld, wordt deze fase weergegeven als gevouwen in de Kanban-"
+"Indien ingeschakeld, wordt deze fase weergegeven als gevouwen in de kanban-"
 "weergave van je taken. Taken in een gevouwen fase worden als gesloten "
-"beschouwd."
+"beschouwd (niet van toepassing op persoonlijke fases)."
 
 #. module: project
 #: model:ir.model.fields,help:project.field_project_task_type__rating_template_id
@@ -3152,6 +3153,13 @@ msgstr "Schrijf een reactie"
 #. module: project
 #. odoo-javascript
 #: code:addons/project/static/src/js/tours/project.js:0
+#, python-format
+msgid "Let's create your first <b>stage</b>."
+msgstr "Laten we je eerste <b>fase</b> maken."
+
+#. module: project
+#. odoo-javascript
+#: code:addons/project/static/src/js/tours/project.js:0
 #: code:addons/project/static/src/js/tours/project.js:0
 #, python-format
 msgid "Let's create your first <b>project</b>."
@@ -3163,6 +3171,13 @@ msgstr "Maak je eerste <b>project</b> aan."
 #, python-format
 msgid "Let's create your first <b>task</b>."
 msgstr "Maak je eerste <b>taak</b> aan."
+
+#. module: project
+#. odoo-javascript
+#: code:addons/project/static/src/js/tours/project.js:0
+#, python-format
+msgid "Let's create your second <b>stage</b>."
+msgstr "Laten we je tweede <b>fase</b> maken."
 
 #. module: project
 #. odoo-javascript
@@ -3754,7 +3769,7 @@ msgstr "Aantal fouten"
 #: model:ir.model.fields,help:project.field_project_project__message_needaction_counter
 #: model:ir.model.fields,help:project.field_project_task__message_needaction_counter
 #: model:ir.model.fields,help:project.field_project_update__message_needaction_counter
-msgid "Number of messages which requires an action"
+msgid "Number of messages requiring action"
 msgstr "Aantal berichten die actie vereisen"
 
 #. module: project

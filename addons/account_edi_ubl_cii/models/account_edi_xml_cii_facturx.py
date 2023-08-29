@@ -236,8 +236,7 @@ class AccountEdiXmlCII(models.AbstractModel):
         vals = self._export_invoice_vals(invoice)
         errors = [constraint for constraint in self._export_invoice_constraints(invoice, vals).values() if constraint]
         xml_content = self.env['ir.qweb']._render('account_edi_ubl_cii.account_invoice_facturx_export_22', vals)
-        xml_content = b"<?xml version='1.0' encoding='UTF-8'?>\n" + etree.tostring(cleanup_xml_node(xml_content))
-        return xml_content, set(errors)
+        return etree.tostring(cleanup_xml_node(xml_content), xml_declaration=True, encoding='UTF-8'), set(errors)
 
     # -------------------------------------------------------------------------
     # IMPORT
@@ -312,7 +311,7 @@ class AccountEdiXmlCII(models.AbstractModel):
 
         invoice_date_node = tree.find('./{*}ExchangedDocument/{*}IssueDateTime/{*}DateTimeString')
         if invoice_date_node is not None and invoice_date_node.text:
-            date_str = invoice_date_node.text
+            date_str = invoice_date_node.text.strip()
             date_obj = datetime.strptime(date_str, DEFAULT_FACTURX_DATE_FORMAT)
             invoice.invoice_date = date_obj.strftime(DEFAULT_SERVER_DATE_FORMAT)
 
@@ -320,7 +319,7 @@ class AccountEdiXmlCII(models.AbstractModel):
 
         invoice_date_due_node = tree.find('.//{*}SpecifiedTradePaymentTerms/{*}DueDateDateTime/{*}DateTimeString')
         if invoice_date_due_node is not None and invoice_date_due_node.text:
-            date_str = invoice_date_due_node.text
+            date_str = invoice_date_due_node.text.strip()
             date_obj = datetime.strptime(date_str, DEFAULT_FACTURX_DATE_FORMAT)
             invoice.invoice_date_due = date_obj.strftime(DEFAULT_SERVER_DATE_FORMAT)
 
